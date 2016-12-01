@@ -45,6 +45,7 @@
       $this->RegisterProfile(1,"WITHINGS_M_Groesse"  ,"Gauge"  ,""," cm");
       $this->RegisterProfile(1,"WITHINGS_M_Puls"     ,"Graph"  ,""," bpm");
       $this->RegisterProfile(2,"WITHINGS_M_Kilo"     ,""       ,""," kg",false,false,false,1);
+      $this->RegisterProfile(2,"WITHINGS_M_PulseWave",""       ,""," m/s",false,false,false,1);
       $this->RegisterProfile(2,"WITHINGS_M_Prozent"  ,""       ,""," %",false,false,false,1);
       $this->RegisterProfile(2,"WITHINGS_M_BMI"      ,""       ,""," kg/m²",false,false,false,1);
       $this->RegisterProfile(1,"WITHINGS_M_Blutdruck","",""," mmHg");
@@ -182,12 +183,21 @@
  
         if ( $this->ReadPropertyBoolean("BodyPuls") == true )
           {
+
           $VariablenID = @IPS_GetVariableIDByName("Puls",$CatID);  
           if ($VariablenID === false)
             {
             $id = $this->RegisterVariableInteger("heartpulse", "Puls","WITHINGS_M_Puls",3);
             IPS_SetParent($id,$CatID);
             } 
+
+          $VariablenID = @IPS_GetVariableIDByName("Pulswellengeschwindigkeit",$CatID);  
+          if ($VariablenID === false)
+            {
+            $id = $this->RegisterVariableFloat("pulsewave", "Pulswellengeschwindigkeit","WITHINGS_M_PulseWave",3);
+            IPS_SetParent($id,$CatID);
+            } 
+
 
           }
       }
@@ -245,6 +255,16 @@
             IPS_ApplyChanges($ArchivID);
             }
           }
+ 
+        $id = @IPS_GetVariableIDByName("Pulswellengeschwindigkeit",$CatID);
+        if ( $id > 0 )
+          {
+          if ( AC_GetLoggingStatus($ArchivID,$id) != $logging )
+            {
+            AC_SetLoggingStatus($ArchivID,$id,$logging);
+            IPS_ApplyChanges($ArchivID);
+            }
+          } 
           
         }
         
@@ -266,6 +286,8 @@
       {
       if ( $this->ReadPropertyBoolean("Modulaktiv") == false )
         return;
+
+      $this->Logging("------------------------------------------------------------");
 
       $this->Logging("Update");
 
@@ -351,13 +373,18 @@
 	     // User
 	     $this->DoUser($ModulID,$data);
 
+      $this->Logging("                                               ");
+
+      $this->Logging("Groessedaten werden geholt");
+
 	     // Groesse
-	     $limit      = 1;     
+	     $limit      = 3;     
 	     $meastype   = 4;
 	     $devtype   	= 1;
 	     $this->API_MeasureGetmeas ( $personid, $publickey, $data, $startdate,$enddate,$meastype,$devtype,$limit);
 	     $this->DoGroesse($ModulID,$data);
 
+      $this->Logging("                                               ");
 
         if ( $this->ReadPropertyBoolean("BodyMeasures") == true )
           {
@@ -365,15 +392,19 @@
 
 
 	       // Gewicht
-	       $limit      = 4;
+	       $limit      = 40;
 	       $meastype   = false;
 	       $devtype   	= 1;
 	       $this->API_MeasureGetmeas ( $personid, $publickey, $data, $startdate,$enddate,$meastype,$devtype,$limit);
 	       $this->DoGewicht($ModulID,$data);
+
          }
 
         if ( $this->ReadPropertyBoolean("BloodMeasures") == true )
           {
+          
+          $this->Logging("                                               ");
+
           $this->Logging("BloodMeasures Daten werden geholt.");
 
 	       // Blutdruck
@@ -607,15 +638,27 @@ protected  function DoUser($ModulID,$data)
 	}
 	
 	
-protected function DoGroesse($ModulID,$data)
+protected function DoGroesse($ModulID,$data1)
 	{
-	$data = @$data['measuregrps'][0]['measures'][0];
+  
+	$data = @$data1['measuregrps'][0]['measures'][0];
+  $date = @$data1['measuregrps'][0]['date'];
+
+  $date = date('d.m.Y H:i:s',$date);
+  
 	if ( count($data) != 3 )
 	   {
 	   $this->Logging("Fehler bei DoGroesse ".count($data));
 	   //return;
 		}
 	$Groesse = $data['value'];
+
+  $typename = "?";
+  if( $data['type'] == 4 )
+    $typename = "Groesse";
+  
+  $this->Logging("Messung ". $date . " : Type : ".$data['type']." (".$typename.") - " .$Groesse);
+
 
 	$id = @IPS_GetVariableIDByName("Groesse",$ModulID);
 	if ( $id > 0 )
@@ -637,6 +680,8 @@ protected  function DoGewicht($ModulID,$data)
 	$bmi           = 0;
 	$groesse       = 0;
 	$puls          = 0;
+  $pulswave      = 0;
+  
   
   $this->Logging("Gewichtsdaten werden ausgewertet.");
   
@@ -706,6 +751,10 @@ protected  function DoGewicht($ModulID,$data)
 				{
 				$puls = round ($val,2);
 				}
+			if ( $messung['type'] == 91 AND $pulswave == 0)
+				{
+				$pulswave = round ($val,2);
+				}
 
 	   	}
 		}
@@ -732,6 +781,11 @@ protected  function DoGewicht($ModulID,$data)
 	$id = @IPS_GetVariableIDByName("Puls",$CatID);
 	if ( $id > 0 )
 	   SetValueInteger($id,$puls);
+	$id = @IPS_GetVariableIDByName("Pulswellengeschwindigkeit",$CatID);
+	if ( $id > 0 )
+	   SetValueFloat($id,$pulswave);
+
+
 
 	}
 	
@@ -761,17 +815,38 @@ protected  function DoBlutdruck($ModulID,$data)
 	   {
 	   $old = GetValueInteger($id);
 	   if ( $old == $time )    // keine neue Daten
-	      return false;
-	   SetValueInteger($id,$time);
+        {
+	       $this->Logging("Keine neuen Daten : ".date('d.m.Y H:i:s',$old));
+        	//return false;
+        
+        }
+      SetValueInteger($id,$time);
 		}
 
 	foreach($data as $messung)
 	   {
 		$val = $messung['value'];
 
-		if ( $messung['type'] == 9 )  $diastolic 		= $val;
-		if ( $messung['type'] == 10 ) $systolic 		= $val;
-		if ( $messung['type'] == 11 ) $pulse 			= $val;
+		if ( $messung['type'] == 9 )
+      { 
+      $diastolic 		= $val;
+      
+      }
+      
+		if ( $messung['type'] == 10 )
+      {
+      $systolic 		= $val;
+      
+      }
+      
+		if ( $messung['type'] == 11 )
+      {
+      $pulse 			= $val;
+
+      }
+      
+    $this->Logging("Messung Type : ".$messung['type']." : " .$val);
+
 
 	   }
 
