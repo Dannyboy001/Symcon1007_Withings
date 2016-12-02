@@ -767,13 +767,14 @@ protected  function DoGewicht($ModulID,$data)
 
       $this->Logging("Messung Type : ".$messung['type']." : " .$val );
 
+      /*
       if ( $attrib != 0 )
         {
         $this->Logging("Nicht Attribut 0 Messung nicht verwendet" );
 
         continue;
         }
-       
+       */
        
         
 			if ( $messung['type'] == 1 AND $gewicht == 0)
@@ -808,7 +809,7 @@ protected  function DoGewicht($ModulID,$data)
 				{
 				$bonemass = round ($val,2);
 				}        
-			if ( $messung['type'] == 91 AND $pulswave == 0)
+			if ( $messung['type'] == 91 AND $pulswave == 0 AND $attrib == 8 )
 				{
 				$pulswave = round ($val,2);
 				}
