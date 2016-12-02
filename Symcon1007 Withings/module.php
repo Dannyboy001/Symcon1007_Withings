@@ -198,6 +198,27 @@
             IPS_SetParent($id,$CatID);
             } 
 
+          $VariablenID = @IPS_GetVariableIDByName("Muskelmasse",$CatID);  
+          if ($VariablenID === false)
+            {
+            $id = $this->RegisterVariableInteger("musclemass", "Muskelmasse","WITHINGS_M_Prozent",3);
+            IPS_SetParent($id,$CatID);
+            } 
+
+          $VariablenID = @IPS_GetVariableIDByName("Gesamtkoerperwasser",$CatID);  
+          if ($VariablenID === false)
+            {
+            $id = $this->RegisterVariableInteger("hydration", "Gesamtkoerperwasser","WITHINGS_M_Prozent",3);
+            IPS_SetParent($id,$CatID);
+            } 
+            
+            
+          $VariablenID = @IPS_GetVariableIDByName("Knochenmasse",$CatID);  
+          if ($VariablenID === false)
+            {
+            $id = $this->RegisterVariableFloat("bonemass", "Knochenmasse","WITHINGS_M_Kilo",2);
+            IPS_SetParent($id,$CatID);
+            }
 
           }
       }
@@ -490,6 +511,8 @@
 
       $time = date("d.m.Y H:i:s");
       $logdatei = IPS_GetLogDir() . "Withings/Withings.log";
+      
+      
       $datei = fopen($logdatei,"a+");
       fwrite($datei, $time ." ". $Text . chr(13));
       fclose($datei);
@@ -681,7 +704,9 @@ protected  function DoGewicht($ModulID,$data)
 	$groesse       = 0;
 	$puls          = 0;
   $pulswave      = 0;
-  
+  $hydration     = 0;
+  $musclemass    = 0;
+  $bonemass      = 0;  
   
   $this->Logging("Gewichtsdaten werden ausgewertet.");
   
@@ -700,13 +725,24 @@ protected  function DoGewicht($ModulID,$data)
     
 	$data = $data['measuregrps'];
 	
-	$time = @$data[0]['date'];
 
-  $this->Logging("Zeitstempel der Daten : ".date('d.m.Y H:i:s',$time));
+ 
   $this->Logging("Anzahl der Messgruppen : ".count($data));
   
 	foreach($data as $d)
 	   {
+
+	   $attrib = @$d['attrib'];
+     $grpid  = @$d['grpid'];
+     
+    $time   = @$d['date'];  
+ 
+    $this->Logging("GruppenID : ".$grpid );
+    $this->Logging("Attribut  : ".$attrib );
+
+    $this->Logging("Zeitstempel der Daten : ".date('d.m.Y H:i:s',$time));
+
+
 	   $daten = $d['measures'];
     $this->Logging("Anzahl der Messungen : ".count($daten));
 	   
@@ -729,8 +765,17 @@ protected  function DoGewicht($ModulID,$data)
 	   	
 			$val = floatval ( $messung['value'] ) * floatval ( "1e".$messung['unit'] );
 
-      $this->Logging("Messung Type : ".$messung['type']." : " .$val);
+      $this->Logging("Messung Type : ".$messung['type']." : " .$val );
 
+      if ( $attrib != 0 )
+        {
+        $this->Logging("Nicht Attribut 0 Messung nicht verwendet" );
+
+        continue;
+        }
+       
+       
+        
 			if ( $messung['type'] == 1 AND $gewicht == 0)
 				{
 				$gewicht = round ($val,2);
@@ -751,6 +796,18 @@ protected  function DoGewicht($ModulID,$data)
 				{
 				$puls = round ($val,2);
 				}
+ 			if ( $messung['type'] == 76 AND $puls == 0)
+				{
+				$musclemass = round ($val,2);
+				}       
+			if ( $messung['type'] == 77 AND $puls == 0)
+				{
+				$hydration = round ($val,2);
+				}
+      if ( $messung['type'] == 88 AND $puls == 0)
+				{
+				$bonemass = round ($val,2);
+				}        
 			if ( $messung['type'] == 91 AND $pulswave == 0)
 				{
 				$pulswave = round ($val,2);
@@ -764,25 +821,35 @@ protected  function DoGewicht($ModulID,$data)
   $bmi = round($gewicht/(($groesse/100)*($groesse/100)),2);
 
 	$id = IPS_GetVariableIDByName("Gewicht",$CatID);
-	if ( $id > 0 )
+	if ( $id > 0 AND $gewicht > 0 )
 	   SetValueFloat($id,$gewicht);
 	$id = IPS_GetVariableIDByName("Fett Anteil",$CatID);
-	if ( $id > 0 )
+	if ( $id > 0 AND $fettanteil > 0 )
 	   SetValueFloat($id,$fettanteil);
 	$id = IPS_GetVariableIDByName("Fettfrei Anteil",$CatID);
-	if ( $id > 0 )
+	if ( $id > 0 AND $fettfrei > 0 )
 	   SetValueFloat($id,$fettfrei);
 	$id = IPS_GetVariableIDByName("Fett Prozent",$CatID);
-	if ( $id > 0 )
+	if ( $id > 0 AND $fettprozent > 0 )
 	   SetValueFloat($id,$fettprozent);
 	$id = IPS_GetVariableIDByName("BMI",$CatID);
-	if ( $id > 0 )
+	if ( $id > 0 AND $bmi > 0 )
 	   SetValueFloat($id,$bmi);
 	$id = @IPS_GetVariableIDByName("Puls",$CatID);
-	if ( $id > 0 )
+	if ( $id > 0 AND $puls > 0)
 	   SetValueInteger($id,$puls);
+	$id = @IPS_GetVariableIDByName("Muskelmasse",$CatID);
+	if ( $id > 0 AND $musclemass > 0)
+	   SetValueInteger($id,$musclemass);
+	$id = @IPS_GetVariableIDByName("Gesamtkoerperwasser",$CatID);
+	if ( $id > 0 AND $hydration > 0 )
+	   SetValueInteger($id,$hydration);
+	$id = @IPS_GetVariableIDByName("Knochenmasse",$CatID);
+	if ( $id > 0 AND $bonemass > 0)
+	   SetValueFloat($id,$bonemass);
+     
 	$id = @IPS_GetVariableIDByName("Pulswellengeschwindigkeit",$CatID);
-	if ( $id > 0 )
+	if ( $id > 0 AND $pulswave > 0 )
 	   SetValueFloat($id,$pulswave);
 
 
