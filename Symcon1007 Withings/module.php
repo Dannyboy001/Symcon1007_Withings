@@ -796,15 +796,15 @@ protected  function DoGewicht($ModulID,$data)
 				{
 				$puls = round ($val,2);
 				}
- 			if ( $messung['type'] == 76 AND $puls == 0)
+ 			if ( $messung['type'] == 76 AND $musclemass == 0)
 				{
 				$musclemass = round ($val,2);
 				}       
-			if ( $messung['type'] == 77 AND $puls == 0)
+			if ( $messung['type'] == 77 AND $hydration == 0)
 				{
 				$hydration = round ($val,2);
 				}
-      if ( $messung['type'] == 88 AND $puls == 0)
+      if ( $messung['type'] == 88 AND $bonemass == 0)
 				{
 				$bonemass = round ($val,2);
 				}        
