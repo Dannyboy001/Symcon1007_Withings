@@ -675,7 +675,9 @@ protected function DoGroesse($ModulID,$data1)
 	   //return;
 		}
 	$Groesse = $data['value'];
-
+  $Unit = $data['unit'];
+  $Groesse = $Groesse * pow(10,$Unit) * 100;
+  
   $typename = "?";
   if( $data['type'] == 4 )
     $typename = "Groesse";
